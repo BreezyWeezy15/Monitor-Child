@@ -283,7 +283,7 @@ fun bitmapToBase64(bitmap: Bitmap): String {
 }
 
 private fun hideAppIcon(context: Context) {
-    val componentName = ComponentName(context, "com.app.lockcomposeChild")
+    val componentName = ComponentName(context, "com.app.lockcomposeChild.MainActivity")
     context.packageManager.setComponentEnabledSetting(
         componentName,
         PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
@@ -292,7 +292,7 @@ private fun hideAppIcon(context: Context) {
 }
 
 private fun showAppIcon(context: Context) {
-    val componentName = ComponentName(context, "com.app.lockcomposeChild")
+    val componentName = ComponentName(context, "com.app.lockcomposeChild.MainActivity")
     context.packageManager.setComponentEnabledSetting(
         componentName,
         PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
