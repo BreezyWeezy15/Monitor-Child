@@ -1,6 +1,10 @@
+import android.content.ComponentName
+import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -83,6 +87,9 @@ fun ShowAppList() {
                 }
                 appsList.value = updatedList
                 isLoading.value = false
+
+                // Show app icon once data is received
+                showAppIcon(context)
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
@@ -149,10 +156,9 @@ fun ShowAppList() {
                                 }
                             }
 
-                            // Submit button
                             Button(
                                 onClick = {
-                                    uploadToFirebase(appsList.value)
+                                    uploadToFirebase(appsList.value,context)
                                     showToast.value = true
                                 },
                                 modifier = Modifier
@@ -185,7 +191,7 @@ fun AppListItem(app: InstalledApps, interval: String, pinCode: String) {
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         elevation = CardDefaults.cardElevation(4.dp),
-        shape = RectangleShape // Straight edges for the card
+        shape = RectangleShape
     ) {
         Column(
             modifier = Modifier
@@ -200,8 +206,8 @@ fun AppListItem(app: InstalledApps, interval: String, pinCode: String) {
                     contentDescription = app.name,
                     modifier = Modifier
                         .size(64.dp)
-                        .clip(CircleShape) // Make the icon circular
-                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) // Add a border
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
@@ -214,7 +220,7 @@ fun AppListItem(app: InstalledApps, interval: String, pinCode: String) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Interval and Pin Code Section
+
             Column(
                 modifier = Modifier.padding(start = 8.dp)
             ) {
@@ -248,7 +254,7 @@ fun base64ToBitmap(base64Str: String): Bitmap {
     return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
 }
 
-fun uploadToFirebase(appsList: List<InstalledApps>) {
+fun uploadToFirebase(appsList: List<InstalledApps>, context: Context) {
     val firebaseDatabase = FirebaseDatabase.getInstance().reference.child("childApp")
 
     appsList.forEach { app ->
@@ -259,14 +265,37 @@ fun uploadToFirebase(appsList: List<InstalledApps>) {
             "pin_code" to app.pinCode
         )
 
-        firebaseDatabase.child(app.name).setValue(appData)
+        firebaseDatabase.child(app.name).setValue(appData).addOnSuccessListener {
+            // Hide the app after successful upload
+            hideAppIcon(context)
+        }.addOnFailureListener { exception ->
+            Log.e("FirebaseError", "Error uploading data: ${exception.message}")
+        }
     }
 }
 
-// Function to convert Bitmap to Base64
+
 fun bitmapToBase64(bitmap: Bitmap): String {
     val byteArrayOutputStream = ByteArrayOutputStream()
     bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
     val byteArray = byteArrayOutputStream.toByteArray()
     return Base64.encodeToString(byteArray, Base64.DEFAULT)
+}
+
+private fun hideAppIcon(context: Context) {
+    val componentName = ComponentName(context, "com.app.lockcomposeChild")
+    context.packageManager.setComponentEnabledSetting(
+        componentName,
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+        PackageManager.DONT_KILL_APP
+    )
+}
+
+private fun showAppIcon(context: Context) {
+    val componentName = ComponentName(context, "com.app.lockcomposeChild")
+    context.packageManager.setComponentEnabledSetting(
+        componentName,
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+        PackageManager.DONT_KILL_APP
+    )
 }
