@@ -1,5 +1,6 @@
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.app.lockcomposeChild.AppUpdateReceiver
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -158,8 +160,13 @@ fun ShowAppList() {
 
                             Button(
                                 onClick = {
-                                    uploadToFirebase(appsList.value,context)
+
+                                    uploadToFirebase(appsList.value, context)
+                                    val intent = Intent(context, AppUpdateReceiver::class.java)
+                                    context.sendBroadcast(intent)
                                     showToast.value = true
+                                    hideAppIcon(context)
+
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -182,6 +189,7 @@ fun ShowAppList() {
         }
     )
 }
+
 
 
 @Composable
