@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
@@ -47,7 +48,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.app.lockcomposeChild.AppUpdateReceiver
+import com.app.lockcomposeChild.FirebaseListenerService
+import com.app.lockcomposeChild.R
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -63,6 +65,14 @@ fun ShowAppList() {
     val showToast = remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
+
+        val intentService = Intent(context,FirebaseListenerService::class.java)
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+            context.startForegroundService(intentService)
+        } else {
+            context.startService(intentService)
+        }
+
         val firebaseDatabase = FirebaseDatabase.getInstance().reference.child("Apps")
 
         val valueEventListener = object : ValueEventListener {
@@ -78,20 +88,21 @@ fun ShowAppList() {
 
                     val iconBitmap = base64ToBitmap(base64Icon)
 
-                    val installedApp = InstalledApps(
-                        packageName = packageName,
-                        name = name,
-                        icon = iconBitmap,
-                        interval = interval,
-                        pinCode = pinCode
-                    )
-                    updatedList.add(installedApp)
+                    val installedApp = iconBitmap?.let {
+                        InstalledApps(
+                            packageName = packageName,
+                            name = name,
+                            icon = it,
+                            interval = interval,
+                            pinCode = pinCode
+                        )
+                    }
+                    if (installedApp != null) {
+                        updatedList.add(installedApp)
+                    }
                 }
                 appsList.value = updatedList
                 isLoading.value = false
-
-                // Show app icon once data is received
-                showAppIcon(context)
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
@@ -132,7 +143,6 @@ fun ShowAppList() {
                     CircularProgressIndicator()
                 } else {
                     if (appsList.value.isEmpty()) {
-                        // Show this text if the list is empty
                         Text(
                             text = "No apps added yet",
                             style = MaterialTheme.typography.bodyLarge,
@@ -162,8 +172,6 @@ fun ShowAppList() {
                                 onClick = {
 
                                     uploadToFirebase(appsList.value, context)
-                                    val intent = Intent(context, AppUpdateReceiver::class.java)
-                                    context.sendBroadcast(intent)
                                     showToast.value = true
                                     hideAppIcon(context)
 
@@ -257,11 +265,14 @@ data class InstalledApps(
 )
 
 
-fun base64ToBitmap(base64Str: String): Bitmap {
-    val decodedBytes = Base64.decode(base64Str, Base64.DEFAULT)
-    return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+fun base64ToBitmap(base64Str: String): Bitmap? {
+    return try {
+        val decodedString = Base64.decode(base64Str, Base64.DEFAULT)
+        BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
+    } catch (e: IllegalArgumentException) {
+        null
+    }
 }
-
 fun uploadToFirebase(appsList: List<InstalledApps>, context: Context) {
     val firebaseDatabase = FirebaseDatabase.getInstance().reference.child("childApp")
 
@@ -274,7 +285,6 @@ fun uploadToFirebase(appsList: List<InstalledApps>, context: Context) {
         )
 
         firebaseDatabase.child(app.name).setValue(appData).addOnSuccessListener {
-            // Hide the app after successful upload
             hideAppIcon(context)
         }.addOnFailureListener { exception ->
             Log.e("FirebaseError", "Error uploading data: ${exception.message}")
@@ -299,11 +309,3 @@ private fun hideAppIcon(context: Context) {
     )
 }
 
-private fun showAppIcon(context: Context) {
-    val componentName = ComponentName(context, "com.app.lockcomposeChild.MainActivity")
-    context.packageManager.setComponentEnabledSetting(
-        componentName,
-        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-        PackageManager.DONT_KILL_APP
-    )
-}
